@@ -12,6 +12,87 @@
         <title>Fear &amp; Hunger 2: TERMINA</title>
     </head>
     <body style="background-color: black">
+        <script>
+            (function () {
+  const toLower = url => {
+    try {
+      const u = new URL(url, location.href);
+      u.pathname = u.pathname.toLowerCase();
+      return u.toString();
+    } catch {
+      return url.toLowerCase();
+    }
+  };
+
+  const origFetch = window.fetch;
+  window.fetch = function (input, init) {
+    if (typeof input === "string") input = toLower(input);
+    else if (input instanceof Request) input = new Request(toLower(input.url), input);
+    return origFetch.call(this, input, init);
+  };
+
+  const origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    return origOpen.call(this, method, toLower(url), ...rest);
+  };
+
+  const origCreateElement = document.createElement.bind(document);
+  document.createElement = function (tag, ...args) {
+    const el = origCreateElement(tag, ...args);
+    const tagLower = tag.toLowerCase();
+
+    if (["img", "script", "link", "audio", "video", "source", "iframe", "embed"].includes(tagLower)) {
+      const attr = tagLower === "link" ? "href" : "src";
+      const descriptor = Object.getOwnPropertyDescriptor(el.__proto__, attr) ||
+                         Object.getOwnPropertyDescriptor(HTMLElement.prototype, attr);
+
+      if (descriptor) {
+        Object.defineProperty(el, attr, {
+          get() { return descriptor.get.call(this); },
+          set(val) { descriptor.set.call(this, toLower(val)); },
+          configurable: true
+        });
+      }
+    }
+
+    return el;
+  };
+
+  const observer = new MutationObserver(mutations => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        const all = [node, ...node.querySelectorAll("[src],[href]")];
+        for (const el of all) {
+          if (el.src) el.src = toLower(el.src);
+          if (el.href && !(el instanceof HTMLAnchorElement)) el.href = toLower(el.href);
+        }
+      }
+    }
+  });
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  const origWorker = window.Worker;
+  window.Worker = function (url, opts) {
+    return new origWorker(toLower(url), opts);
+  };
+
+  if (window.EventSource) {
+    const origES = window.EventSource;
+    window.EventSource = function (url, opts) {
+      return new origES(toLower(url), opts);
+    };
+  }
+
+  if (window.WebSocket) {
+    const origWS = window.WebSocket;
+    window.WebSocket = function (url, protocols) {
+      return new origWS(toLower(url), protocols);
+    };
+  }
+})();
+        </script>
         <script type="text/javascript" src="js/libs/pixi.js"></script>
         <script type="text/javascript" src="js/libs/pixi-tilemap.js"></script>
         <script type="text/javascript" src="js/libs/pixi-picture.js"></script>
